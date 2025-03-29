@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather App</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+
+<body>
+    <button class="theme-toggle" id="themeToggle">
+        <i class="fas fa-moon" id="themeIcon"></i>
+    </button>
+    <div class="card">
+        <div class="search">
+            <input type="text" placeholder="Enter your city" spellcheck="false">
+            <div class="button-group">
+                <button class="refresh-btn" id="refreshBtn" title="Refresh weather">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+                <button id="searchBtn"><img src="images/search.png"></button>
+            </div>
+        </div>
+        <div class="recent-searches">
+            <h3>Recent Searches</h3>
+            <div class="recent-list" id="recentList">
+                <!-- Recent searches will be added here dynamically -->
+            </div>
+        </div>
+        <div class="error">
+            <p>Invalid city name</p>
+        </div>
+        <div class="loader">
+            <div class="spinner"></div>
+            <p>Loading weather data...</p>
+        </div>
+        <div class="weather-content">
+            <div class="weather">
+                <img src="images/clouds.png" class="weather-icon">
+                <h1 class="temp">22°C</h1>
+                <h2 class="city">New York</h2>
+                <button class="search-another-btn" id="searchAnotherBtn">
+                    <i class="fas fa-search"></i>
+                    Search Another City
+                </button>
+                <div class="details">
+                    <div class="col">
+                        <img src="images/humidity.png" alt="Humidity" class="humidity-icon">
+                        <div class="text-container">
+                            <p class="humidity" >50%</p>
+                            <p>Humidity</p>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <img src="images/wind.png" alt="Wind" class="wind-icon">
+                        <div class="text-container">
+                            <p class="wind">15 km/hr</p>
+                            <p >Wind</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="forecast">
+                    <h3>5-Day Forecast</h3>
+                    <div class="forecast-container" id="forecastContainer">
+                        <!-- Forecast items will be added here dynamically -->
+                    </div>
+                </div>            
+            </div>
+        </div>
+        <script>
+            // Theme Toggle Functionality
+            const themeToggle = document.getElementById('themeToggle');
+            const themeIcon = document.getElementById('themeIcon');
+            
+            // Check for saved theme preference
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'light') {
+                document.body.classList.add('light-theme');
+                themeIcon.classList.remove('fa-moon');
+                themeIcon.classList.add('fa-sun');
+                document.querySelector("body").style.backgroundImage = "url('images/Day.png')";
+            } else {
+                document.querySelector("body").style.backgroundImage = "url('images/Night.png')";
+            }
+
+            themeToggle.addEventListener('click', () => {
+                document.body.classList.toggle('light-theme');
+                if (document.body.classList.contains('light-theme')) {
+                    themeIcon.classList.remove('fa-moon');
+                    themeIcon.classList.add('fa-sun');
+                    localStorage.setItem('theme', 'light');
+                    // Update background based on current weather
+                    if (document.querySelector(".weather-content").classList.contains("active")) {
+                        const weatherIcon = document.querySelector(".weather-icon");
+                        const weatherMain = weatherIcon.src.split('/').pop().split('.')[0];
+                        if (weatherMain === "clouds") {
+                            document.querySelector("body").style.backgroundImage = "url('images/cloud-day.jpeg')";
+                        } else if (weatherMain === "clear") {
+                            document.querySelector("body").style.backgroundImage = "url('images/clear-day.jpg')";
+                        } else if (weatherMain === "rain" || weatherMain === "drizzle") {
+                            document.querySelector("body").style.backgroundImage = "url('images/rainy-background.jpeg')";
+                        }
+                    } else {
+                        document.querySelector("body").style.backgroundImage = "url('images/Day.png')";
+                    }
+                    // Update humidity and wind icons to black version
+                    const humidityIcon = document.querySelector(".humidity-icon");
+                    const windIcon = document.querySelector(".wind-icon");
+                    if (humidityIcon) humidityIcon.src = "images/humidity_black.png";
+                    if (windIcon) windIcon.src = "images/wind_black.png";
+                } else {
+                    themeIcon.classList.remove('fa-sun');
+                    themeIcon.classList.add('fa-moon');
+                    localStorage.setItem('theme', 'dark');
+                    // Update background based on current weather
+                    if (document.querySelector(".weather-content").classList.contains("active")) {
+                        const weatherIcon = document.querySelector(".weather-icon");
+                        const weatherMain = weatherIcon.src.split('/').pop().split('.')[0];
+                        if (weatherMain === "clouds") {
+                            document.querySelector("body").style.backgroundImage = "url('images/cloudy-night.jpg')";
+                        } else if (weatherMain === "clear") {
+                            document.querySelector("body").style.backgroundImage = "url('images/clear-night.jpeg')";
+                        } else if (weatherMain === "rain" || weatherMain === "drizzle") {
+                            document.querySelector("body").style.backgroundImage = "url('images/rainy-night.jpg')";
+                        }
+                    } else {
+                        document.querySelector("body").style.backgroundImage = "url('images/Night.png')";
+                    }
+                    // Update humidity and wind icons to white version
+                    const humidityIcon = document.querySelector(".humidity-icon");
+                    const windIcon = document.querySelector(".wind-icon");
+                    if (humidityIcon) humidityIcon.src = "images/humidity.png";
+                    if (windIcon) windIcon.src = "images/wind.png";
+                }
+            });
+
+            const apikey = "fde68ecfedc1aff7b3d1b1fa4f97e371";
+            const apiUrl = "https://api.openweathermap.org/data/2.5/weather?&units=metric&q=";
+            const forecastApiUrl = "https://api.openweathermap.org/data/2.5/forecast?&units=metric&q=";
+
+            const searchBox = document.querySelector(".search input");
+            const searchBtn = document.querySelector("#searchBtn");
+            const refreshBtn = document.querySelector("#refreshBtn");
+            const weatherIcon = document.querySelector(".weather-icon");
+            const loader = document.querySelector(".loader");
+            const recentList = document.getElementById("recentList");
+            const searchAnotherBtn = document.getElementById('searchAnotherBtn');
+
+            let currentCity = ""; // Store the current city
+            let recentSearches = JSON.parse(localStorage.getItem('recentSearches')) || [];
+
+            // Function to update recent searches
+            function updateRecentSearches(city) {
+                // Remove the city if it already exists
+                recentSearches = recentSearches.filter(item => item !== city);
+                // Add the new city at the beginning
+                recentSearches.unshift(city);
+                // Keep only the last 5 searches
+                recentSearches = recentSearches.slice(0, 5);
+                // Save to localStorage
+                localStorage.setItem('recentSearches', JSON.stringify(recentSearches));
+                // Update the display
+                displayRecentSearches();
+            }
+
+            // Function to display recent searches
+            function displayRecentSearches() {
+                recentList.innerHTML = '';
+                recentSearches.forEach(city => {
+                    const cityElement = document.createElement('div');
+                    cityElement.className = 'recent-city';
+                    cityElement.innerHTML = `
+                        <i class="fas fa-history"></i>
+                        <span>${city}</span>
+                    `;
+                    cityElement.addEventListener('click', () => {
+                        searchBox.value = city;
+                        checkWeather(city);
+                    });
+                    recentList.appendChild(cityElement);
+                });
+            }
+
+            function showLoader() {
+                loader.style.display = "flex";
+                document.querySelector(".weather-content").classList.remove("active");
+                document.querySelector(".error").style.display = "none";
+            }
+
+            function hideLoader() {
+                loader.style.display = "none";
+            }
+
+            // Function to get day name from date
+            function getDayName(dateStr) {
+                const date = new Date(dateStr);
+                return date.toLocaleDateString('en-US', { weekday: 'short' });
+            }
+
+            // Function to update forecast display
+            function updateForecast(forecastData) {
+                const forecastContainer = document.getElementById('forecastContainer');
+                forecastContainer.innerHTML = '';
+
+                // Get one forecast per day (every 8th item as data is in 3-hour intervals)
+                const dailyForecasts = forecastData.list.filter((item, index) => index % 8 === 0);
+
+                dailyForecasts.forEach(forecast => {
+                    const forecastItem = document.createElement('div');
+                    forecastItem.className = 'forecast-item';
+                    forecastItem.innerHTML = `
+                        <div class="forecast-day">${getDayName(forecast.dt_txt)}</div>
+                        <img src="images/${forecast.weather[0].main.toLowerCase()}.png" alt="${forecast.weather[0].main}">
+                        <div class="forecast-temp">${Math.round(forecast.main.temp)}°C</div>
+                    `;
+                    forecastContainer.appendChild(forecastItem);
+                });
+            }
+
+            async function checkWeather(city) {
+                // Check for empty or whitespace-only search
+                if (!city || city.trim() === '') {
+                    document.querySelector(".error").innerHTML = "Please enter a city name";
+                    document.querySelector(".error").style.display = "block";
+                    document.querySelector(".weather-content").classList.remove("active");
+                    return;
+                }
+
+                showLoader();
+                try {
+                    // Fetch current weather
+                    const weatherResponse = await fetch(apiUrl + city + `&appid=${apikey}`);
+                    
+                    if (weatherResponse.status == 404) {
+                        hideLoader();
+                        document.querySelector(".error").innerHTML = "Invalid city name";
+                        document.querySelector(".error").style.display = "block";
+                        document.querySelector(".weather-content").classList.remove("active");
+                        return;
+                    }
+
+                    // Fetch 5-day forecast
+                    const forecastResponse = await fetch(forecastApiUrl + city + `&appid=${apikey}`);
+                    const weatherData = await weatherResponse.json();
+                    const forecastData = await forecastResponse.json();
+
+                    currentCity = city;
+                    updateRecentSearches(city);
+
+                    // Update current weather
+                    document.querySelector(".city").innerHTML = weatherData.name;
+                    document.querySelector(".temp").innerHTML = Math.round(weatherData.main.temp) + "°C";
+                    document.querySelector(".humidity").innerHTML = weatherData.main.humidity + "%";
+                    document.querySelector(".wind").innerHTML = weatherData.wind.speed + "km/hr";
+
+                    // Update humidity and wind icons based on theme
+                    const humidityIcon = document.querySelector(".humidity-icon");
+                    const windIcon = document.querySelector(".wind-icon");
+                    if (document.body.classList.contains('light-theme')) {
+                        humidityIcon.src = "images/humidity_black.png";
+                        windIcon.src = "images/wind_black.png";
+                    } else {
+                        humidityIcon.src = "images/humidity.png";
+                        windIcon.src = "images/wind.png";
+                    }
+
+                    // Update weather icon and background
+                    if (weatherData.weather[0].main == "Clouds") {
+                        weatherIcon.src = "images/clouds.png";
+                        if (document.body.classList.contains('light-theme')) {
+                            document.querySelector("body").style.backgroundImage = "url('images/cloud-day.jpeg')";
+                        } else {
+                            document.querySelector("body").style.backgroundImage = "url('images/cloudy-night.jpg')";
+                        }
+                    } else if (weatherData.weather[0].main == "Clear") {
+                        weatherIcon.src = "images/clear.png";
+                        if (document.body.classList.contains('light-theme')) {
+                            document.querySelector("body").style.backgroundImage = "url('images/clear-day.jpg')";
+                        } else {
+                            document.querySelector("body").style.backgroundImage = "url('images/clear-night.jpeg')";
+                        }
+                    } else if (weatherData.weather[0].main == "Rain") {
+                        weatherIcon.src = "images/rain.png";
+                        if (document.body.classList.contains('light-theme')) {
+                            document.querySelector("body").style.backgroundImage = "url('images/rainy-background.jpeg')";
+                        } else {
+                            document.querySelector("body").style.backgroundImage = "url('images/rainy-night.jpg')";
+                        }
+                    } else if (weatherData.weather[0].main == "Drizzle") {
+                        weatherIcon.src = "images/drizzle.png";
+                        if (document.body.classList.contains('light-theme')) {
+                            document.querySelector("body").style.backgroundImage = "url('images/rainy-background.jpeg')";
+                        } else {
+                            document.querySelector("body").style.backgroundImage = "url('images/rainy-night.jpg')";
+                        }
+                    } else if (weatherData.weather[0].main == "Mist") {
+                        weatherIcon.src = "images/mist.png";
+                    }
+
+                    // Update background styles
+                    document.querySelector("body").style.backgroundRepeat = "no-repeat";
+                    document.querySelector("body").style.backgroundAttachment = "fixed";
+                    document.querySelector("body").style.backgroundSize = "Cover";
+
+                    // Update forecast
+                    updateForecast(forecastData);
+
+                    // Show weather content and hide search
+                    document.querySelector(".weather-content").classList.add("active");
+                    document.querySelector(".search").classList.add("hidden");
+                    document.querySelector(".recent-searches").classList.add("hidden");
+                    document.querySelector(".error").style.display = "none";
+                } catch (error) {
+                    console.error('Error fetching weather data:', error);
+                    document.querySelector(".error").innerHTML = "Error fetching weather data";
+                    document.querySelector(".error").style.display = "block";
+                    document.querySelector(".weather-content").classList.remove("active");
+                } finally {
+                    hideLoader();
+                }
+            }
+
+            searchBtn.addEventListener("click", () => {
+                checkWeather(searchBox.value);
+            });
+
+            refreshBtn.addEventListener("click", () => {
+                if (currentCity) {
+                    checkWeather(currentCity);
+                    // Add rotation animation to refresh icon
+                    refreshBtn.querySelector('i').classList.add('fa-spin');
+                    setTimeout(() => {
+                        refreshBtn.querySelector('i').classList.remove('fa-spin');
+                    }, 1000);
+                }
+            });
+
+            // Allow Enter key to search
+            searchBox.addEventListener("keypress", (event) => {
+                if (event.key === "Enter") {
+                    checkWeather(searchBox.value);
+                }
+            });
+
+            // Clear weather display when input is cleared
+            searchBox.addEventListener("input", () => {
+                if (searchBox.value.trim() === '') {
+                    document.querySelector(".weather-content").classList.remove("active");
+                    document.querySelector(".error").style.display = "none";
+                }
+            });
+
+            // Display recent searches on page load
+            displayRecentSearches();
+
+            // Add event listener for search another button
+            searchAnotherBtn.addEventListener('click', () => {
+                searchBox.value = '';
+                searchBox.focus();
+                document.querySelector(".weather-content").classList.remove("active");
+                document.querySelector(".search").classList.remove("hidden");
+                document.querySelector(".recent-searches").classList.remove("hidden");
+                document.querySelector(".error").style.display = "none";
+                
+                // Set background based on current theme
+                if (document.body.classList.contains('light-theme')) {
+                    document.querySelector("body").style.backgroundImage = "url('images/Day.png')";
+                } else {
+                    document.querySelector("body").style.backgroundImage = "url('images/Night.png')";
+                }
+            });
+        </script>
+    </div>
+</body>
+
+</html>
